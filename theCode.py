@@ -1,154 +1,181 @@
 class Polynomial():
-    def __init__(self, nomial1, operator, nomial2):
+    def __init__(self, nomial1, operator, nomial2, atpS=False):
         self.nomial1 = nomial1
         self.operator = operator
         self.nomial2 = nomial2
+        self.__atpS = atpS #attempt simplify
 
-        try:
-            result = "Dont"
-            if operator == "+":
-                result = self.nomial1 + self.nomial2
-            elif operator == "-":
-                result = self.nomial1 - self.nomial2
-            elif operator == "*":
-                result = self.nomial1 * self.nomial2
-            elif operator == "/":
-                result = self.nomial1 / self.nomial2
-            elif operator == "^" or operator == "**":
-                result = self.nomial1 ** self.nomial2
-        except:
-            result = "Dont"
+        #print("tried as", self.__repr__(), self.__atpS)
 
-        finally:
-            if result != "Dont":
-                self.__init__(result, None, None)
+        if self.operator in ["+","-"] and (self.nomial1==0 or self.nomial2==0):
+            self.__init__(self.nomial1==0 and self.nomial2 or self.nomial1,None,None)
+        elif self.operator in ["*","/"] and (self.nomial1==1 or self.nomial2==1):
+            self.__init__(self.nomial1==1 and self.nomial2 or self.nomial1,None,None)
+        elif self.operator in ["**","^"] and (self.nomial2==1):
+            self.__init__(self.nomial1,None,None)
 
-        if type(self.nomial1) == Polynomial and self.operator in [None,False] and self.nomial2 in [None,False]:
-            self.__init__(self.nomial1.nomial1, self.nomial1.operator, self.nomial1.nomial2)
+        if self.operator == None and isinstance(self.nomial1, Polynomial):
+            #Removing nesting, by default nomial1 is prioritized
+            self.__init__(self.nomial1.nomial1, self.nomial1.operator, self.nomial1.nomial2, True)
+        #Solving inner problems
+        elif self.operator == "+" and not self.__atpS:
+            self.__init__(self.get_nomials_sum(), None, None, True)
+        elif self.operator == "-" and not self.__atpS:
+            self.__init__(self.get_nomials_difference(), None, None, True)
+        elif self.operator == "*" and not self.__atpS:
+            self.__init__(self.get_nomials_product(), None, None, True)
+        elif self.operator in ["^","**"] and not self.__atpS:
+            self.__init__(self.get_nomials_powered(), None, None, True)
+        else:
+            self.__atpS = True
+
+    def result(self):
+        if self.operator == None:
+            return self.nomial1
+
+    def __are_nomials_numbers(self):
+        return isinstance(self.nomial1,(int,float,Polynomial)) and isinstance(self.nomial2,(int,float,Polynomial))
 
     def __str__(self):
-        #Printa polinômios e monômios
-        return "(" + str(self.nomial1) + str(self.operator) + str(self.nomial2) + ")"
+        #Hides unescessary stuff
+        toShow = str(self.nomial1)
+        if self.operator != None:
+            toShow += str(self.operator)
+            toShow += str(self.nomial2)
+        return "(" + toShow + ")"
 
     def __repr__(self):
-        #Mostra todas os atributos, sem esconder
-        if self.operator == None:
-            return str(self.nomial1)
+        #Doesnt hide anything
+        return "(" + self.nomial1.__repr__() + str(self.operator) + self.nomial2.__repr__() + ")"
+
+    def get_nomials_sum(self):
+        if self.__are_nomials_numbers():
+            return self.nomial1 + self.nomial2
+        else: return Polynomial(self.nomial1,"+",self.nomial2, True)
+
+    def get_nomials_difference(self):
+        if self.__are_nomials_numbers():
+            return self.nomial1 - self.nomial2
+        else: return Polynomial(self.nomial1,"-",self.nomial2, True)
+
+    def get_nomials_product(self):
+        if self.__are_nomials_numbers():
+            return self.nomial1 * self.nomial2
+        else: return Polynomial(self.nomial1,"*",self.nomial2, True)
+
+    def get_nomials_powered(self):
+        if self.__are_nomials_numbers():
+            return self.nomial1 ** self.nomial2
+        else: return Polynomial(self.nomial1,"^",self.nomial2, True)
+
+
+    def __add__(self, toAdd):
+        #Can only add with operator being "+","-" or None
+        if self.operator in [None,"+","-"]:
+            try:
+                return Polynomial(self.nomial1 + toAdd, self.operator, self.nomial2)
+            except:
+                try:
+                    return Polynomial(self.nomial1, self.operator, self.nomial2 + toAdd)
+                except:
+                    if self.operator==None:
+                        #removes parent nesting
+                        return Polynomial(self.nomial1,"+",toAdd)
+                    else:
+                        return Polynomial(self,"+",toAdd)
         else:
-            toShow = str(self.nomial1)
-            toShow += self.operator and str(self.operator) or ""
-            toShow += self.nomial2 and str(self.nomial2) or ""
-            return "(" + toShow + ")"
-
-    def addition(self, toAdd, ignoreFactor=0):
-        result = self
-        try:
-            if ignoreFactor == 1:
-                return False
-            result = self.nomial1 + toAdd
-        except TypeError as e:
-            if ignoreFactor == 2:
-                return False
-            result = self.nomial2 + toAdd
-
-        except TypeError as actE:
-            print("WEE WOO WEE WOO (add)")
-            print(actE)
-            return False
-        finally:
-            return result
+            return Polynomial(self,"+",toAdd, True)
 
     def __radd__(self, toAdd):
         return self.__add__(toAdd)
 
-    def __add__(self, toAdd):
-        return self.addition(toAdd)
+    def __sub__(self, toSub):
+        return self.__add__(-toSub)
 
     def __rsub__(self, toSub):
-        return -self.__sub__(toSub)
-
-    def __sub__(self, toSub):
-        return self.addition(-toSub)
+        return -self.__add__(-toSub)
 
     def __neg__(self):
         return self * -1
 
+    def __mul__(self, toMul):
+        #Multiplies  ONE  term if the operator is "*"
+        #Multiplies BOTH terms if the operator is "+" or "-"
+        #Multiplies FIRST term if the operator is "/" or None
 
-    def multiply(self, toMulti, ignoreFactor=0):
-        esult = self
-        didIt = ["idklol", None, None]
+        #print("trying to multiply", self, "by", toMul)
 
-        if self.operator in ["+","-"]:
-            didIt[0] = "and"
-        elif self.operator in ["*"]:
-            didIt[0] = "or"
-        elif self.operator in ["/"]:
-            didIt[0] = "onlyFirst"
-        elif self.operator in [None]:
-            didIt[0] = "Noner"
-
+        firstResult = False
         try:
-            didIt[1] = self.nomial1 * toMulti
+            if not isinstance(self.nomial1,str):
+                firstResult = self.nomial1 * toMul
         except:
-            didIt[1] = None
-
-        try:
-            didIt[2] = self.nomial2 * toMulti
-        except:
-            didIt[2] = None
-
-        if didIt[0] == "and" and didIt[1]!=None and didIt[2]!=None:
-            return Polynomial(didIt[1], self.operator, didIt[2])
-        elif didIt[0] == "or" and didIt[1]!=None:
-            return Polynomial(didIt[1], self.operator, self.nomial2)
-        elif didIt[0] == "or" and didIt[2]!=None:
-            return Polynomial(self.nomial1, self.operator, didIt[2])
-        elif didIt[0] == "onlyFirst" and didIt[1]!=None:
-            return Polynomial(didIt[1], self.operator, self.nomial2)
-        elif didIt[0] == "Noner" and toMulti = None:
-            return Polynomial(didIt[1], self.operator, self.nomial2)
+            if self.operator in ["+","-","/",None]:
+                #needed to have first nomial calculated
+                return Polynomial(self,"*",toMul)
         else:
-            return Polynomial(self,"*",toMulti)
-
-    def __rmul__(self, toMulti):
-        return self.__mul__(toMulti)
-
-    def __mul__(self, toMulti):
-        return self.multiply(toMulti)
-
-    def __rdiv__(self, toDiv):
-        return self ** -1
-
-    def __div__(self, toDiv):
-        return self.multiply(1/toDiv)
+            if firstResult and self.operator in ["/",None]:
+                #got requirements
+                return Polynomial(firstResult, self.operator, self.nomial2)
 
 
-    def exponentiate(self, toPow, ignoreFactor=0):
-        result = self
+        secondResult = False
         try:
-            if ignoreFactor == 1:
-                return False
-            result = self.nomial1 ** toPow
-        except TypeError as e:
-            if ignoreFactor == 2:
-                return False
-            result = self.nomial2 ** toPow
+            if not isinstance(self.nomial2,str):
+                secondResult = self.nomial2 * toMul
+        except:
+            if self.operator in ["+","-"]:
+                #needed to have second nomial calculated
+                return Polynomial(self,"*",toMul)
+        else:
+            if secondResult and self.operator in ["+","-"]:
+                #got requirements
+                return Polynomial(firstResult, self.operator, secondResult)
 
-        except TypeError as actE:
-            print("WEE WOO WEE WOO (pow)")
-            print(actE)
-            return False
+        #smart multiplication
+        priority = isinstance(self.nomial1,(int,float)) and 1 or 2
+        #print(firstResult, secondResult, priority)
+        if self.operator in ["*"]:
+            if firstResult and (priority==1 or not secondResult):
+                return Polynomial(firstResult, self.operator, self.nomial2)
+            elif secondResult and (priority==2 or not firstResult):
+                return Polynomial(self.nomial1, self.operator, secondResult)
+            else:
+                return Polynomial(self,"*",toMul, True)
 
-        finally:
-            return Polynomial(result,None,None)
+        return Polynomial(self,"*",toMul, True)
+
+
+    def __rmul__(self, toMul):
+        return self.__mul__(toMul)
+
+    def __truediv__(self, toDiv):
+        return self.__mul__(1/toDiv)
+
+    def __rtruediv__(self, toDiv):
+        return (self**-1).__mul__(toDiv)
 
     def __pow__(self, toPow):
-        return self.exponentiate(toPow, 0)
+        #Can only pow with operator being "*","/" or None
+        #print("trying to power", self, "to", toPow)
+        if self.operator == "^":
+            return Polynomial(self.nomial1,"^",self.nomial2 * toPow)
+        elif not self.operator in ["*","/",None]:
+            return Polynomial(self,"^",toPow, True)
 
-    def __rpow__(self, toPow, recursed=False):
+        firstResult = None
         try:
-            if recursed:
-                pass
-            return toPow.exponentiate(self, 0)
-        except Exception as e:
-            return Polynomial(toPow, "^", self)
+            firstResult = self.nomial1 ** toPow
+        except:
+            if self.nomial1 != None: #None should work
+                return Polynomial(self,"^",toPow, True)
+
+        secondResult = None
+        try:
+            secondResult = self.nomial2 ** toPow
+        except:
+            if self.nomial2 != None:
+                return Polynomial(self,"^",toPow, True)
+
+        #print("got", firstResult, secondResult)
+        return Polynomial(firstResult,self.operator,secondResult,True)
